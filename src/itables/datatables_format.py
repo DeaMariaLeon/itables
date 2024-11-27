@@ -2,6 +2,7 @@ import json
 import re
 import warnings
 
+import narwhals.stable.v1 as nw
 import numpy as np
 import pandas as pd
 import pandas.io.formats.format as fmt
@@ -83,6 +84,7 @@ def datatables_rows(df, count=None, warn_on_unexpected_types=False, pure_json=Fa
     """Format the values in the table and return the data, row by row, as requested by DataTables"""
     # We iterate over columns using an index rather than the column name
     # to avoid an issue in case of duplicated column names #89
+    df = nw.from_native(df)
     if count is None or len(df.columns) == count:
         empty_columns = []
     else:
@@ -91,37 +93,38 @@ def datatables_rows(df, count=None, warn_on_unexpected_types=False, pure_json=Fa
         assert missing_columns > 0
         empty_columns = [[None] * len(df)] * missing_columns
 
-    try:
-        # Pandas DataFrame
-        data = list(
-            zip(
-                *(empty_columns + [_format_column(x, pure_json) for _, x in df.items()])
-            )
-        )
-        has_bigints = any(
-            x.dtype.kind == "i"
+    # try:
+    #    # Pandas DataFrame
+    #    data = list(
+    #        zip(
+    #            *(empty_columns + [_format_column(x, pure_json) for _, x in df.items()])
+    #        )
+    #    )
+    #    has_bigints = any(
+    #        x.dtype.kind == "i"
+    #        and ((x > JS_MAX_SAFE_INTEGER).any() or (x < JS_MIN_SAFE_INTEGER).any())
+    #        for _, x in df.items()
+    #    )
+    #    js = json.dumps(
+    #        data,
+    #        cls=generate_encoder(warn_on_unexpected_types),
+    #        allow_nan=not pure_json,
+    #    )
+    # except AttributeError:
+    # Polars DataFrame
+    data = list(df.iter_rows())
+    # import polars as pl
+    has_bigints = any(
+        (
+            # x.dtype == pl.Int64
+            x.dtype == nw.Int64
             and ((x > JS_MAX_SAFE_INTEGER).any() or (x < JS_MIN_SAFE_INTEGER).any())
-            for _, x in df.items()
         )
-        js = json.dumps(
-            data,
-            cls=generate_encoder(warn_on_unexpected_types),
-            allow_nan=not pure_json,
-        )
-    except AttributeError:
-        # Polars DataFrame
-        data = list(df.iter_rows())
-        import polars as pl
-
-        has_bigints = any(
-            (
-                x.dtype == pl.Int64
-                and ((x > JS_MAX_SAFE_INTEGER).any() or (x < JS_MIN_SAFE_INTEGER).any())
-            )
-            or (x.dtype == pl.UInt64 and (x > JS_MAX_SAFE_INTEGER).any())
-            for x in (df[col] for col in df.columns)
-        )
-        js = json.dumps(data, cls=generate_encoder(False), allow_nan=not pure_json)
+        # or (x.dtype == pl.UInt64 and (x > JS_MAX_SAFE_INTEGER).any())
+        or (x.dtype == nw.UInt64 and (x > JS_MAX_SAFE_INTEGER).any())
+        for x in (df[col] for col in df.columns)
+    )
+    js = json.dumps(data, cls=generate_encoder(False), allow_nan=not pure_json)
 
     if has_bigints:
         js = n_suffix_for_bigints(js, pure_json=pure_json)
