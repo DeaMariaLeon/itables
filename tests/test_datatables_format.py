@@ -36,7 +36,7 @@ from itables.sample_dfs import PANDAS_VERSION_MAJOR
         (pd.DataFrame({"x": [0, 1, None]}, dtype="Int64"), [[0], [1], ["<NA>"]]),
         (
             pd.DataFrame({"x": [0.2, math.pi, np.nan, -np.inf]}),
-            # [[0.2], [round(math.pi, 6)], [float("NaN")], [-float("inf")]],
+            #[[0.2], [round(math.pi, 6)], [float("NaN")], [-float("inf")]],
             [[0.2], [math.pi], [float("NaN")], [-float("inf")]],
         ),
         (pd.DataFrame({"s": ["hi", '"hi"']}), [["hi"], ['"hi"']]),

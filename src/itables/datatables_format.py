@@ -44,6 +44,7 @@ def _format_column(x, pure_json=False):
 def generate_encoder(warn_on_unexpected_types=True):
     class TableValuesEncoder(json.JSONEncoder):
         def default(self, obj):
+            breakpoint()
             if isinstance(obj, (bool, int, float, str)):
                 return json.JSONEncoder.default(self, obj)
             if isinstance(obj, np.bool_):
@@ -82,45 +83,15 @@ def _isetitem(df, i, value):
 
 def datatables_rows(df, count=None, warn_on_unexpected_types=False, pure_json=False):
     """Format the values in the table and return the data, row by row, as requested by DataTables"""
-    # We iterate over columns using an index rather than the column name
-    # to avoid an issue in case of duplicated column names #89
-    df = nw.from_native(df)
-    if count is None or len(df.columns) == count:
-        empty_columns = []
-    else:
-        # When the header requires more columns (#141), we append empty columns on the left
-        missing_columns = count - len(df.columns)
-        assert missing_columns > 0
-        empty_columns = [[None] * len(df)] * missing_columns
-
-    # try:
-    #    # Pandas DataFrame
-    #    data = list(
-    #        zip(
-    #            *(empty_columns + [_format_column(x, pure_json) for _, x in df.items()])
-    #        )
-    #    )
-    #    has_bigints = any(
-    #        x.dtype.kind == "i"
-    #        and ((x > JS_MAX_SAFE_INTEGER).any() or (x < JS_MIN_SAFE_INTEGER).any())
-    #        for _, x in df.items()
-    #    )
-    #    js = json.dumps(
-    #        data,
-    #        cls=generate_encoder(warn_on_unexpected_types),
-    #        allow_nan=not pure_json,
-    #    )
-    # except AttributeError:
-    # Polars DataFrame
+    
+    df = nw.from_native(df) 
     data = list(df.iter_rows())
-    # import polars as pl
+   
     has_bigints = any(
         (
-            # x.dtype == pl.Int64
             x.dtype == nw.Int64
             and ((x > JS_MAX_SAFE_INTEGER).any() or (x < JS_MIN_SAFE_INTEGER).any())
         )
-        # or (x.dtype == pl.UInt64 and (x > JS_MAX_SAFE_INTEGER).any())
         or (x.dtype == nw.UInt64 and (x > JS_MAX_SAFE_INTEGER).any())
         for x in (df[col] for col in df.columns)
     )
